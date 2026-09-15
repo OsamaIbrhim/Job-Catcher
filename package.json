@@ -1,0 +1,25 @@
+{
+  "name": "telegram-job-catcher",
+  "version": "0.1.0",
+  "description": "Collects and filters job posts from Telegram channels",
+  "type": "module",
+  "scripts": {
+    "login": "node src/login.js",
+    "channels": "node src/list-channels.js",
+    "doctor": "node src/doctor.js",
+    "channel-id": "node src/channel-id.js",
+    "dry": "node src/dry-run.js",
+    "start": "node src/index.js",
+    "cleanup": "node src/cleanup.js",
+    "test": "node --test test/**/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "input": "^1.0.1",
+    "mongodb": "^7.6.0",
+    "telegram": "^2.26.22"
+  }
+}

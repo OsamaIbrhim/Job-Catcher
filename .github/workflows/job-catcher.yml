@@ -1,0 +1,50 @@
+name: Job Catcher
+
+# Runs automatically every 30 minutes, and can also be triggered
+# manually from the Actions tab on GitHub (workflow_dispatch) if you
+# want to test it right away.
+#
+# Two important notes:
+#  1. GitHub automatically disables scheduled workflows on public
+#     repos after 60 days with no activity (a commit) on the repo.
+#     If the script suddenly stops running, open the Actions tab and
+#     trigger it manually once, or make a small commit.
+#  2. GitHub Actions cron timing isn't exact — it can drift 5 to 20
+#     minutes past the scheduled time when GitHub's servers are
+#     busy. That's normal, not a config error.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run job catcher
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_SESSION: ${{ secrets.TG_SESSION }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AI_ENABLED: ${{ vars.AI_ENABLED }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          RETENTION_DAYS: ${{ vars.RETENTION_DAYS }}
+          CLEANUP_INTERVAL_DAYS: ${{ vars.CLEANUP_INTERVAL_DAYS }}
+        run: npm start

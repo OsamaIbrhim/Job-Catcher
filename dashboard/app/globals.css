@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/*
+ * Dark mode only, by design (see DASHBOARD_PROMPT.md) — there is no
+ * light variant and no toggle, so we just tell the browser this page
+ * is dark rather than fighting its default light UI chrome (form
+ * control colors, scrollbars) with more CSS.
+ */
+html {
+  color-scheme: dark;
+}

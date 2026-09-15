@@ -1,0 +1,9 @@
+node_modules/
+.env
+data/channels.json
+
+# dashboard (separate Next.js project — see dashboard/package.json)
+dashboard/node_modules/
+dashboard/.next/
+dashboard/.env.local
+dashboard/.env*.local
