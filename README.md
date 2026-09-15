@@ -28,9 +28,10 @@ to your own private Telegram channel in a clean, structured format.
   run). Any AI failure (bad JSON, timeout, quota, network) falls
   back to the keyword result and the regex parser automatically —
   the job still gets sent.
-- **Scheduling**: GitHub Actions, running every 30 minutes — it
-  wakes up, runs, and exits, rather than staying running as a
-  daemon. That means your laptop can be off and the script still
+- **Scheduling**: GitHub Actions, running every 5 minutes (GitHub's
+  documented minimum interval — it can't go faster) — it wakes up,
+  runs, and exits, rather than staying running as a daemon. That
+  means your laptop can be off and the script still
   runs.
 
 ## Before you start
@@ -59,7 +60,7 @@ to your own private Telegram channel in a clean, structured format.
    going live.**
 8. Once you're happy with the `npm run dry` output, run `npm start`
    for the real run, then enable the GitHub Actions workflow (add
-   the secrets and let it run on its own every 30 minutes).
+   the secrets and let it run on its own every 5 minutes).
 
 ## npm scripts
 
@@ -507,8 +508,8 @@ exit, they can't poll on a schedule or hold an MTProto session. The
 dashboard only ever *reads*.
 
 ```
-GitHub Actions (cron, every 30 min)  →  MongoDB Atlas  ←  Vercel (dashboard)
-        collector: read + write              shared           read only
+GitHub Actions (cron, every 5 min)  →  MongoDB Atlas  ←  Vercel (dashboard)
+        collector: read + write             shared           read only
 ```
 
 **What it shows**: a list of job cards (newest first) with title, company,

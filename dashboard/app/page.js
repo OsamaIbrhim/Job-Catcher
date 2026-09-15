@@ -1,12 +1,14 @@
 import { Suspense } from "react";
-import { getJobs, getDistinctStackTags } from "../lib/queries.js";
+import { getJobs, getDistinctStackTags, getTotalJobCount } from "../lib/queries.js";
 import FilterBar from "../components/FilterBar.js";
 import JobCard from "../components/JobCard.js";
 import EmptyState from "../components/EmptyState.js";
 
 // This page reads the database on every request — there is nothing
 // meaningful to statically cache for a dashboard whose whole point
-// is showing what the collector just found.
+// is showing what the collector just found. The filter-independent
+// pieces (stack tags, total count) still get their own short-lived
+// cache — see lib/queries.js.
 export const dynamic = "force-dynamic";
 
 function normalizeFilters(params) {
@@ -23,9 +25,14 @@ export default async function DashboardPage({ searchParams }) {
   const rawParams = await searchParams;
   const filters = normalizeFilters(rawParams);
 
-  const [{ jobs, filteredCount, totalInDb }, stackOptions] = await Promise.all([
+  // getJobs is the only one of these that actually depends on the
+  // filters — the other two are cached (see lib/queries.js) so a
+  // filter change doesn't re-scan the whole collection for data that
+  // wasn't going to change anyway.
+  const [{ jobs, filteredCount }, stackOptions, totalInDb] = await Promise.all([
     getJobs(filters),
     getDistinctStackTags(),
+    getTotalJobCount(),
   ]);
 
   return (

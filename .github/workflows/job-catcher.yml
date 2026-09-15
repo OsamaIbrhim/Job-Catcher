@@ -1,21 +1,38 @@
 name: Job Catcher
 
-# Runs automatically every 30 minutes, and can also be triggered
-# manually from the Actions tab on GitHub (workflow_dispatch) if you
-# want to test it right away.
+# Runs automatically every 5 minutes (GitHub's documented minimum
+# interval for scheduled workflows — anything shorter isn't
+# supported), and can also be triggered manually from the Actions
+# tab on GitHub (workflow_dispatch) if you want to test it right
+# away.
 #
-# Two important notes:
+# Three important notes:
 #  1. GitHub automatically disables scheduled workflows on public
 #     repos after 60 days with no activity (a commit) on the repo.
 #     If the script suddenly stops running, open the Actions tab and
 #     trigger it manually once, or make a small commit.
-#  2. GitHub Actions cron timing isn't exact — it can drift 5 to 20
-#     minutes past the scheduled time when GitHub's servers are
-#     busy. That's normal, not a config error.
+#  2. GitHub Actions cron timing isn't exact — it can drift, and
+#     GitHub's own docs are explicit that frequent schedules like
+#     this one are the most likely to be delayed or occasionally
+#     skipped during periods of high platform load. At a 5-minute
+#     interval, don't be surprised by an actual cadence closer to
+#     every 5-15 minutes in practice — that's GitHub, not a bug here.
+#  3. `concurrency` below makes a new scheduled run WAIT for a
+#     still-running previous one instead of starting in parallel.
+#     Without this, a run that takes longer than 5 minutes (AI calls,
+#     retries, the per-message send throttle) could overlap with the
+#     next trigger — two runs racing on the same channel cursor and
+#     dedup checks could both pass the "already sent?" check for the
+#     same message before either finishes writing it, and send a
+#     duplicate. This is the fix for that, not a performance nicety.
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
+
+concurrency:
+  group: job-catcher
+  cancel-in-progress: false
 
 jobs:
   run:
