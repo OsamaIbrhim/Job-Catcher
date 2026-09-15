@@ -50,6 +50,7 @@ Judgement rules:
 4. Be lenient about seniority. Only reject on level if the role clearly needs many years of experience the candidate does not have. When it is ambiguous, say it matches and note the concern in "reason".
 5. Reject: non-engineering roles, courses, training ads, internship ads selling a paid program, recruiter spam with no actual job, and roles whose core language is not JS/TS (Flutter, PHP, .NET, Java, Swift, Kotlin).
 6. If the post is not a job at all, set is_job to false and stop — the other fields can be null.
+7. Write "summary" and "reason" in English, always — even when the job post itself is written in Arabic or a mix of Arabic and English. Do not translate "title", "company", or "location": keep those exactly as they appear in the original post.
 
 Return ONLY a single JSON object, no prose, no markdown code fences, matching exactly this shape:
 {
@@ -62,8 +63,8 @@ Return ONLY a single JSON object, no prose, no markdown code fences, matching ex
   "work_mode": "remote | hybrid | onsite | unknown",
   "seniority": "junior | mid | senior | staff+ | unknown",
   "stack": ["React", "Node.js", "MongoDB"],
-  "summary": "Two lines max, in Arabic, describing the job",
-  "reason": "short reason this does or does not fit, shown to the candidate",
+  "summary": "Two lines max, in English, describing the job",
+  "reason": "short reason this does or does not fit, shown to the candidate, in English",
   "apply_link": "https://... or null",
   "apply_email": "email or null"
 }`;
