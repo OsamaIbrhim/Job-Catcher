@@ -62,9 +62,15 @@ function escapeRegex(str) {
  * The idea: the keyword must not be directly touching a Latin
  * letter/digit on either side (so "java" won't match inside
  * "javascript", since "javascript" has an "s" right after "java").
+ * Arabic letters deliberately don't count as a boundary: Arabic
+ * attaches prefixes like "ال" / "و" / "ب" directly to the word
+ * ("والفرونت اند"), so Arabic keywords match as substrings.
  */
 export function buildKeywordRegex(keyword) {
-  const escaped = escapeRegex(keyword.toLowerCase());
+  // The keyword goes through the same normalization as the text it's
+  // matched against, so Arabic keywords can be written naturally
+  // (e.g. "فرونت إند") and still match the normalized post text.
+  const escaped = escapeRegex(normalizeText(keyword));
   return new RegExp(`(?<![a-z0-9])${escaped}(?![a-z0-9])`, "i");
 }
 

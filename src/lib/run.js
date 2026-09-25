@@ -36,6 +36,7 @@ import {
   hasSentHash,
   markSentHash,
   insertJobRecord,
+  recordSendFailure,
 } from "./db.js";
 import { maybeRunScheduledCleanup } from "./cleanup.js";
 import { scoreMessage, computeTextHash } from "./filter.js";
@@ -49,6 +50,14 @@ const MAX_MESSAGE_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days, always
 const FIRST_RUN_FETCH_LIMIT = 200;
 const NORMAL_FETCH_LIMIT = 100;
 const AI_CONCURRENCY = 3;
+// A message Telegram rejects as a Bad Request (HTTP 400 — e.g. HTML
+// it can't parse) will fail the same way forever. Without a limit,
+// it would pin the channel cursor and block every later job in that
+// channel. After this many consecutive runs failing on the same
+// message, it's skipped. Other failures (network, 5xx, 401/403 bot
+// misconfiguration) are never counted — those aren't the message's
+// fault, and skipping would lose real jobs.
+const MAX_BAD_REQUEST_FAILURES = 3;
 
 function emptySummary() {
   return {
@@ -58,6 +67,7 @@ function emptySummary() {
     matched: 0,
     seniorityRejected: 0,
     sent: 0,
+    sendGaveUp: 0,
     dupSkipped: 0,
     excluded: 0,
     tooOld: 0,
@@ -236,7 +246,17 @@ async function decideAndSend({ evaluated, aiResults, channel, live, log, summary
       const html = buildJobMessage(job);
 
       if (live) {
-        await sendTelegramMessage(process.env.BOT_TOKEN, process.env.CHANNEL_ID, html);
+        try {
+          await sendTelegramMessage(process.env.BOT_TOKEN, process.env.CHANNEL_ID, html);
+        } catch (err) {
+          if (err.status !== 400) throw err;
+          const failCount = await recordSendFailure(db, channel.id, message.id);
+          if (failCount < MAX_BAD_REQUEST_FAILURES) throw err;
+          log(`[SKIP:SEND] "${jobFields.title}" — rejected by Telegram ${failCount} runs in a row, skipping: ${err.message}`);
+          summary.sendGaveUp++;
+          maxId = message.id;
+          continue;
+        }
         await markSentHash(db, e.hash);
         await insertJobRecord(db, {
           hash: e.hash,
@@ -277,16 +297,30 @@ async function decideAndSend({ evaluated, aiResults, channel, live, log, summary
   }
 }
 
-async function processChannel({ client, db, channel, now, live, log, aiEnabled, apiKey, limiter }) {
+// Exported for tests (test/run.test.js) — runPipeline is the real entry point.
+export async function processChannel({ client, db, channel, now, live, log, aiEnabled, apiKey, limiter }) {
   const summary = emptySummary();
 
   const lastSeenId = await getLastSeenId(db, channel.id);
-  const isFirstRun = lastSeenId == null;
+  // A stored cursor of 0 (a first run that found no messages) counts
+  // as a first run too — fetching oldest-first from 0 would crawl
+  // the channel's entire history.
+  const isFirstRun = !lastSeenId;
 
-  const rawMessages = await client.getMessages(channel.entity, {
-    minId: lastSeenId || 0,
-    limit: isFirstRun ? FIRST_RUN_FETCH_LIMIT : NORMAL_FETCH_LIMIT,
-  });
+  // After the first run, fetch OLDEST-first from the cursor. The
+  // default (newest-first) would return only the latest N messages,
+  // and if more than N piled up since the last run (e.g. Actions was
+  // paused), the older ones would never be fetched — the cursor would
+  // jump straight past them. Oldest-first means a backlog is simply
+  // worked through N at a time over the next few runs. The first run
+  // has no cursor, so it stays newest-first (the last 24 hours, not
+  // the channel's oldest history).
+  const rawMessages = await client.getMessages(
+    channel.entity,
+    isFirstRun
+      ? { limit: FIRST_RUN_FETCH_LIMIT }
+      : { minId: lastSeenId, limit: NORMAL_FETCH_LIMIT, reverse: true }
+  );
 
   summary.messagesRead = rawMessages.length;
 
@@ -389,6 +423,7 @@ export function printSummary(summary, log = console.log) {
   log(`Matched the keyword filter: ${summary.matched}`);
   log(`Rejected for seniority (title-only hard reject): ${summary.seniorityRejected}`);
   log(`Sent: ${summary.sent}`);
+  log(`Gave up sending (Telegram kept rejecting the message): ${summary.sendGaveUp}`);
   log(`Skipped as duplicates: ${summary.dupSkipped}`);
   log(`Skipped (older than 7 days): ${summary.tooOld}`);
   log(`Skipped (didn't match keywords): ${summary.excluded}`);

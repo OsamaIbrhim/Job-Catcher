@@ -37,6 +37,33 @@ export const INCLUDE_KEYWORDS = [
   "tailwind",
   "rest api",
   "electron",
+  // Arabic — many posts in these channels are written in Arabic only,
+  // using transliterated tech terms. Written in natural spelling;
+  // normalization (textNormalize.js) handles the alef/ta-marbuta
+  // variants. Kept to multi-word or distinctive terms, since Arabic
+  // keywords match as substrings (see buildKeywordRegex).
+  "مطور ويب",
+  "مبرمج ويب",
+  "مطور مواقع",
+  "مبرمج مواقع",
+  "مطور واجهات",
+  "واجهات امامية",
+  "فرونت اند",
+  "باك اند",
+  "فول ستاك",
+  "فل ستاك",
+  "رياكت",
+  "نود جي اس",
+  "نكست جي اس",
+  "جافاسكريبت",
+  "جافا سكريبت",
+  "جافاسكربت",
+  "جافا سكربت",
+  "تايب سكريبت",
+  "تايبسكريبت",
+  "مونجو",
+  "مهندس برمجيات",
+  "مطور برمجيات",
 ];
 
 // Words that, if found, reject the post immediately (a different tech stack entirely)
@@ -66,6 +93,12 @@ export const EXCLUDE_KEYWORDS = [
   "data entry",
   "sales representative",
   "accountant",
+  // Arabic equivalents of the non-engineering roles above ("محاسب" is
+  // deliberately left out: as a substring it also matches "محاسبي",
+  // e.g. a React job building an accounting system).
+  "مصمم جرافيك",
+  "ادخال بيانات",
+  "مندوب مبيعات",
 ];
 
 // Seniority signals that are far enough from the user's experience level

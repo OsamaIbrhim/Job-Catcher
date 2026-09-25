@@ -98,6 +98,24 @@ export async function setLastSeenId(db, channelId, messageId) {
   );
 }
 
+/**
+ * Counts consecutive failed send attempts for one message in a
+ * channel, stored alongside the cursor in channel_state. Returns
+ * the new count. A different message id resets the count to 1 —
+ * only repeated failures on the SAME message mean it's stuck.
+ */
+export async function recordSendFailure(db, channelId, messageId) {
+  const col = db.collection("channel_state");
+  const doc = await col.findOne({ _id: String(channelId) });
+  const failCount = doc?.failingMessageId === messageId ? (doc.failCount || 0) + 1 : 1;
+  await col.updateOne(
+    { _id: String(channelId) },
+    { $set: { failingMessageId: messageId, failCount, updatedAt: new Date() } },
+    { upsert: true }
+  );
+  return failCount;
+}
+
 export async function hasSentHash(db, hash) {
   const doc = await db.collection("sent_hashes").findOne({ _id: hash });
   return Boolean(doc);

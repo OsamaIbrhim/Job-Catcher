@@ -38,7 +38,7 @@ test("relativeTime: plural days", () => {
   assert.equal(relativeTime(date, now), "3 days ago");
 });
 
-test("escapeHtml escapes ampersand and angle brackets only", () => {
+test("escapeHtml escapes ampersand and angle brackets", () => {
   assert.equal(escapeHtml("C++ & C# <fun>"), "C++ &amp; C# &lt;fun&gt;");
 });
 
@@ -87,4 +87,13 @@ test("buildJobMessage includes all provided fields in order", () => {
 test("formatCairoDate does not throw and returns a non-empty string", () => {
   const result = formatCairoDate(new Date());
   assert.ok(result.length > 0);
+});
+
+test("escapeHtml escapes double quotes, so a link can't break out of href", () => {
+  assert.equal(escapeHtml('a"b'), "a&quot;b");
+});
+
+test("buildJobMessage: a link containing a quote stays a valid href attribute", () => {
+  const html = buildJobMessage({ title: "Dev", link: 'https://x.com/apply?q="react"' });
+  assert.ok(html.includes('href="https://x.com/apply?q=&quot;react&quot;"'));
 });

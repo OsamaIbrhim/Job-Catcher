@@ -8,6 +8,7 @@ import {
   markSentHash,
   getAiCache,
   setAiCache,
+  recordSendFailure,
 } from "../src/lib/db.js";
 import { createFakeDb } from "./helpers/fakeDb.js";
 
@@ -103,4 +104,19 @@ test("AI cache round trip: null before caching, the cached result after", async 
   await setAiCache(db, "hash-x", { is_job: true, title: "Cached title" });
   const cached = await getAiCache(db, "hash-x");
   assert.equal(cached.title, "Cached title");
+});
+
+test("recordSendFailure: counts consecutive failures on the same message, resets on a new one", async () => {
+  const db = createFakeDb();
+  assert.equal(await recordSendFailure(db, 1, 10), 1);
+  assert.equal(await recordSendFailure(db, 1, 10), 2);
+  assert.equal(await recordSendFailure(db, 1, 11), 1);
+  assert.equal(await recordSendFailure(db, 2, 11), 1, "counts are per channel");
+});
+
+test("recordSendFailure: doesn't disturb the channel cursor", async () => {
+  const db = createFakeDb();
+  await setLastSeenId(db, 1, 99);
+  await recordSendFailure(db, 1, 100);
+  assert.equal(await getLastSeenId(db, 1), 99);
 });

@@ -102,3 +102,31 @@ test("scoreMessage with no title argument never hard-rejects on seniority", () =
   const result = scoreMessage("Principal Software Engineer needed, React and Node required");
   assert.equal(result.include, true);
 });
+
+test("accepts an Arabic-only frontend post (no English keywords at all)", () => {
+  const text = "مطلوب مطور فرونت اند\nخبرة في رياكت\nالقاهرة";
+  assert.equal(scoreMessage(text, "مطلوب مطور فرونت اند").include, true);
+});
+
+test("Arabic keywords match across alef spelling variants and attached prefixes", () => {
+  // the keyword list has "فرونت اند"; this post writes it with إ and a و/ال prefix
+  const text = "نبحث عن مطور والفرونت إند للعمل عن بعد";
+  assert.equal(scoreMessage(text, "نبحث عن مطور").include, true);
+});
+
+test("accepts an Arabic-only software engineering post", () => {
+  const text = "مطلوب مهندس برمجيات للعمل في شركة ناشئة";
+  assert.equal(scoreMessage(text, "مطلوب مهندس برمجيات").include, true);
+});
+
+test("rejects an Arabic data-entry post", () => {
+  const text = "مطلوب موظف إدخال بيانات يجيد استخدام الكمبيوتر";
+  const result = scoreMessage(text, "مطلوب موظف إدخال بيانات");
+  assert.equal(result.include, false);
+  assert.match(result.reason, /^excluded:/);
+});
+
+test("an unrelated Arabic post still doesn't match", () => {
+  const text = "مطلوب سائق خاص براتب مجزي";
+  assert.equal(scoreMessage(text, "مطلوب سائق خاص").include, false);
+});

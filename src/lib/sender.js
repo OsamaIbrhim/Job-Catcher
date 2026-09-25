@@ -21,29 +21,54 @@ export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function sendTelegramMessage(botToken, chatId, html) {
+// Telegram answers a burst of sends with HTTP 429 and a
+// `parameters.retry_after` (seconds). We honour it a few times, but
+// cap each wait so one throttled send can't eat the whole GitHub
+// Actions timeout.
+const SEND_MAX_ATTEMPTS = 3;
+const MAX_RETRY_AFTER_MS = 60000;
+
+/**
+ * `fetchFn` and `sleepFn` are injectable so tests can simulate a
+ * 429 without real HTTP calls or real waiting.
+ */
+export async function sendTelegramMessage(
+  botToken,
+  chatId,
+  html,
+  { fetchFn = fetch, sleepFn = sleep, maxAttempts = SEND_MAX_ATTEMPTS } = {}
+) {
   if (!botToken) throw new Error("BOT_TOKEN is missing from .env");
   if (!chatId) throw new Error("CHANNEL_ID is missing from .env");
 
   const url = `${TELEGRAM_API_BASE}/bot${botToken}/sendMessage`;
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: html,
-      parse_mode: "HTML",
-      disable_web_page_preview: false,
-    }),
-  });
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetchFn(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: html,
+        parse_mode: "HTML",
+        disable_web_page_preview: false,
+      }),
+    });
 
-  const data = await res.json().catch(() => null);
+    const data = await res.json().catch(() => null);
 
-  if (!res.ok || !data?.ok) {
+    if (res.ok && data?.ok) return data.result;
+
+    const retryAfterSec = data?.parameters?.retry_after;
+    if (res.status === 429 && attempt < maxAttempts) {
+      const waitMs = Math.min((retryAfterSec ?? 5) * 1000, MAX_RETRY_AFTER_MS);
+      await sleepFn(waitMs);
+      continue;
+    }
+
     const reason = data?.description || `HTTP ${res.status}`;
-    throw new Error(`Failed to send message via Telegram: ${reason}`);
+    const err = new Error(`Failed to send message via Telegram: ${reason}`);
+    err.status = res.status;
+    throw err;
   }
-
-  return data.result;
 }

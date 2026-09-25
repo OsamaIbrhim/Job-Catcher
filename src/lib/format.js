@@ -13,7 +13,7 @@
  * titles routinely contain "-", ".", or "!" — forget to escape one
  * and Telegram rejects the whole message at send time, which is
  * hard to test without live credentials. HTML only needs & < >
- * escaped and renders the same layout.
+ * escaped (plus " inside href attributes) and renders the same layout.
  * -----------------------------------------------------------
  */
 
@@ -24,7 +24,8 @@ export function escapeHtml(str) {
     .toString()
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function pluralize(n, unit) {
