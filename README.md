@@ -4,6 +4,9 @@ A tool that reads job postings from Telegram channels you follow,
 filters them against your profile, and forwards the relevant ones
 to your own private Telegram channel in a clean, structured format.
 
+**Live demo:** [job-catcher-sigma.vercel.app](https://job-catcher-sigma.vercel.app),
+the read-only dashboard showing the jobs the bot has caught.
+
 ## Architecture
 
 - **Reading**: your personal Telegram account, via the `telegram`
@@ -496,6 +499,8 @@ entries in `sent_hashes` when I checked). What's left:
   from a date field, without needing to write manual cleanup code.
 
 ## Dashboard
+
+Live at [job-catcher-sigma.vercel.app](https://job-catcher-sigma.vercel.app).
 
 A read-only Next.js dashboard lives in `/dashboard` and reads the same
 `jobs` collection the collector writes to. It's a fully separate project
