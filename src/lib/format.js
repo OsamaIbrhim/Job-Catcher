@@ -108,6 +108,17 @@ export function buildJobMessage(job) {
     lines.push(`🤖 ${escapeHtml(job.aiReason)}`);
   }
 
+  // The AI's review, when it found something worth knowing before
+  // applying. Each line is omitted when there's nothing to say.
+  const review = [];
+  if (job.salary) review.push(`💰 ${escapeHtml(job.salary)}`);
+  if (job.gaps?.length) review.push(`🧩 Gaps: ${escapeHtml(job.gaps.join(", "))}`);
+  if (job.redFlags?.length) review.push(`🚩 ${escapeHtml(job.redFlags.join("; "))}`);
+  if (review.length) {
+    if (!job.aiReason) lines.push("");
+    lines.push(...review);
+  }
+
   const linkLines = [];
   if (job.link) {
     linkLines.push(`🔗 Apply: <a href="${escapeHtml(job.link)}">${escapeHtml(job.link)}</a>`);

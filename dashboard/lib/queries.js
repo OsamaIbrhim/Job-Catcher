@@ -47,7 +47,7 @@ function buildFilter({ q, workMode, age, stack, hideSenior }) {
 
   if (q) {
     const re = new RegExp(escapeRegex(q), "i");
-    conditions.push({ $or: [{ title: re }, { company: re }, { stack: re }] });
+    conditions.push({ $or: [{ title: re }, { company: re }, { location: re }, { stack: re }] });
   }
 
   if (workMode && workMode !== "all") {
@@ -129,4 +129,32 @@ export async function getTotalJobCount() {
 
   totalCountCache = { data: count, expiresAt: now + CACHE_TTL_MS };
   return count;
+}
+
+let latestCatchCache = { data: undefined, expiresAt: 0 };
+
+/**
+ * When the collector last sent a job (`sentAt` of the most recently
+ * caught document), or null if the collection is empty. Powers the
+ * board's health line — if this is hours old, the collector has
+ * gone quiet (e.g. GitHub disabled the schedule), and the board
+ * says so. Filter-independent, so cached like the others.
+ */
+export async function getLatestCatch() {
+  const now = Date.now();
+  if (latestCatchCache.data !== undefined && latestCatchCache.expiresAt > now) {
+    return latestCatchCache.data;
+  }
+
+  const db = await getDb();
+  const doc = await db
+    .collection("jobs")
+    .find({ sentAt: { $exists: true } }, { projection: { sentAt: 1 } })
+    .sort({ sentAt: -1 })
+    .limit(1)
+    .next();
+
+  const data = doc?.sentAt ? new Date(doc.sentAt).getTime() : null;
+  latestCatchCache = { data, expiresAt: now + CACHE_TTL_MS };
+  return data;
 }

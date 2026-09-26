@@ -31,6 +31,8 @@ const DEFAULT_BASE_BACKOFF_MS = 2000;
 
 const VALID_WORK_MODES = ["remote", "hybrid", "onsite", "unknown"];
 const VALID_SENIORITY = ["junior", "mid", "senior", "staff+", "unknown"];
+const VALID_EMPLOYMENT = ["full-time", "part-time", "contract", "internship", "freelance", "unknown"];
+const MAX_LIST_ITEMS = 6;
 
 const SYSTEM_PROMPT = `You are screening Telegram job posts for a specific candidate. Judge fit using ONLY the profile and rules below.
 
@@ -50,7 +52,16 @@ Judgement rules:
 4. Be lenient about seniority. Only reject on level if the role clearly needs many years of experience the candidate does not have. When it is ambiguous, say it matches and note the concern in "reason".
 5. Reject: non-engineering roles, courses, training ads, internship ads selling a paid program, recruiter spam with no actual job, and roles whose core language is not JS/TS (Flutter, PHP, .NET, Java, Swift, Kotlin).
 6. If the post is not a job at all, set is_job to false and stop — the other fields can be null.
-7. Write "summary" and "reason" in English, always — even when the job post itself is written in Arabic or a mix of Arabic and English. Do not translate "title", "company", or "location": keep those exactly as they appear in the original post.
+7. Write "summary", "reason", "must_haves", "gaps", and "red_flags" in English, always — even when the job post itself is written in Arabic or a mix of Arabic and English. Do not translate "title", "company", or "location": keep those exactly as they appear in the original post.
+
+Review the post like a careful recruiter reading on the candidate's behalf:
+8. "must_haves": the few requirements the post treats as essential (skills, degree, years, language), shortest form, max 6. Only what the post actually says.
+9. "gaps": must-haves the candidate does NOT meet according to the profile above (e.g. "5+ years experience", "Java/Spring Boot", "German C1"). Empty list if none. Never invent gaps the post does not state.
+10. "red_flags": concrete warning signs only — asks the candidate to pay (training/registration fee), commission-only or unpaid, no company name and no way to verify it, "course with job guarantee", pyramid/referral schemes, requests for ID or bank details. Empty list when there are none; do not list vague style issues.
+11. "years_required": the minimum years of experience the post asks for, as a number, or null if not stated.
+12. "salary": the pay exactly as stated (keep currency and period), or null.
+13. "employment_type": full-time, part-time, contract, internship, freelance, or unknown.
+14. "confidence" is how sure you are that "matches_me" is right, calibrated like this: 0.9+ the core stack is the candidate's (React/Node/MERN/Next.js) and there are no gaps; 0.7-0.89 a good fit with minor gaps or missing detail; 0.5-0.69 plausible but vague or with a notable gap; below 0.5 you are guessing.
 
 Return ONLY a single JSON object, no prose, no markdown code fences, matching exactly this shape:
 {
@@ -65,9 +76,49 @@ Return ONLY a single JSON object, no prose, no markdown code fences, matching ex
   "stack": ["React", "Node.js", "MongoDB"],
   "summary": "Two lines max, in English, describing the job",
   "reason": "short reason this does or does not fit, shown to the candidate, in English",
+  "must_haves": ["React", "2+ years experience"],
+  "gaps": [],
+  "red_flags": [],
+  "years_required": 2,
+  "salary": "25,000 EGP / month, or null",
+  "employment_type": "full-time | part-time | contract | internship | freelance | unknown",
   "apply_link": "https://... or null",
   "apply_email": "email or null"
 }`;
+
+// Gemini's structured-output schema (an OpenAPI 3 subset). With this,
+// the model is constrained to produce exactly this shape — far fewer
+// "invalid JSON" fallbacks than asking nicely in the prompt alone.
+const NULLABLE_STRING = { type: "STRING", nullable: true };
+const STRING_LIST = { type: "ARRAY", items: { type: "STRING" } };
+export const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    is_job: { type: "BOOLEAN" },
+    matches_me: { type: "BOOLEAN", nullable: true },
+    confidence: { type: "NUMBER", nullable: true },
+    title: NULLABLE_STRING,
+    company: NULLABLE_STRING,
+    location: NULLABLE_STRING,
+    work_mode: { type: "STRING", enum: VALID_WORK_MODES },
+    seniority: { type: "STRING", enum: VALID_SENIORITY },
+    employment_type: { type: "STRING", enum: VALID_EMPLOYMENT },
+    stack: STRING_LIST,
+    summary: NULLABLE_STRING,
+    reason: NULLABLE_STRING,
+    must_haves: STRING_LIST,
+    gaps: STRING_LIST,
+    red_flags: STRING_LIST,
+    years_required: { type: "NUMBER", nullable: true },
+    salary: NULLABLE_STRING,
+    apply_link: NULLABLE_STRING,
+    apply_email: NULLABLE_STRING,
+  },
+};
+// Every field is required (nullable ones may still be null). With
+// only is_job required, the model skipped most of the review in
+// testing — company, salary, gaps — even when the post stated them.
+RESPONSE_SCHEMA.required = Object.keys(RESPONSE_SCHEMA.properties);
 
 function buildPrompt(messageText) {
   return `${SYSTEM_PROMPT}\n\n---\nTelegram post to analyze:\n---\n${messageText}\n---`;
@@ -82,6 +133,14 @@ export function stripCodeFences(text) {
   const trimmed = (text || "").trim();
   const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
   return fenceMatch ? fenceMatch[1].trim() : trimmed;
+}
+
+function cleanList(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((s) => typeof s === "string" && s.trim())
+    .map((s) => s.trim())
+    .slice(0, MAX_LIST_ITEMS);
 }
 
 /**
@@ -108,7 +167,16 @@ export function validateAiShape(obj) {
     location: typeof obj.location === "string" && obj.location.trim() ? obj.location.trim() : null,
     work_mode: VALID_WORK_MODES.includes(obj.work_mode) ? obj.work_mode : "unknown",
     seniority: VALID_SENIORITY.includes(obj.seniority) ? obj.seniority : "unknown",
+    employment_type: VALID_EMPLOYMENT.includes(obj.employment_type) ? obj.employment_type : "unknown",
     stack: Array.isArray(obj.stack) ? obj.stack.filter((s) => typeof s === "string") : [],
+    must_haves: cleanList(obj.must_haves),
+    gaps: cleanList(obj.gaps),
+    red_flags: cleanList(obj.red_flags),
+    years_required:
+      typeof obj.years_required === "number" && Number.isFinite(obj.years_required) && obj.years_required >= 0
+        ? obj.years_required
+        : null,
+    salary: typeof obj.salary === "string" && obj.salary.trim() ? obj.salary.trim() : null,
     summary: typeof obj.summary === "string" && obj.summary.trim() ? obj.summary.trim() : null,
     reason: typeof obj.reason === "string" && obj.reason.trim() ? obj.reason.trim() : null,
     apply_link: typeof obj.apply_link === "string" && obj.apply_link.trim() ? obj.apply_link.trim() : null,
@@ -169,8 +237,12 @@ function extractRetryDelayMs(errorBody) {
  * otherwise (network failure, timeout, non-OK status, empty
  * response).
  */
-async function callGeminiOnce(messageText, apiKey) {
-  const url = `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+async function callGeminiOnce(messageText, apiKey, { withSchema = true } = {}) {
+  // The key goes in a header, not the URL, so it can never end up in
+  // an error message, a proxy log, or a stack trace that quotes the URL.
+  const url = `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent`;
+  const generationConfig = { temperature: 0.2, responseMimeType: "application/json" };
+  if (withSchema) generationConfig.responseSchema = RESPONSE_SCHEMA;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -179,11 +251,11 @@ async function callGeminiOnce(messageText, apiKey) {
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       signal: controller.signal,
       body: JSON.stringify({
         contents: [{ parts: [{ text: buildPrompt(messageText) }] }],
-        generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+        generationConfig,
       }),
     });
   } catch (err) {
@@ -199,6 +271,13 @@ async function callGeminiOnce(messageText, apiKey) {
     const retryHeader = res.headers.get("retry-after");
     const retryAfterMs = extractRetryDelayMs(body) ?? (retryHeader ? Number(retryHeader) * 1000 : null);
     throw new RateLimitError(body?.error?.message || "Gemini rate limit exceeded", retryAfterMs);
+  }
+
+  // If a model/version ever rejects the structured-output schema,
+  // don't let that silently disable the whole AI layer — retry once
+  // the old way (prompt-only JSON), which every model supports.
+  if (res.status === 400 && withSchema) {
+    return callGeminiOnce(messageText, apiKey, { withSchema: false });
   }
 
   if (!res.ok) {
@@ -275,7 +354,9 @@ export async function getAiVerdict({ db, text, hash, apiKey, log, requestFn, sle
   try {
     const cached = await getAiCache(db, hash);
     if (cached) {
-      return { outcome: "cached", data: cached };
+      // Re-validate: results cached before a field was added (e.g.
+      // gaps/red_flags) get safe defaults instead of undefined.
+      return { outcome: "cached", data: validateAiShape(cached) };
     }
   } catch (err) {
     log?.(`[AI] cache read failed, continuing without cache: ${err.message}`);

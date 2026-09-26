@@ -1,11 +1,112 @@
 @import "tailwindcss";
 
 /*
- * Dark mode only, by design (see DASHBOARD_PROMPT.md) — there is no
- * light variant and no toggle, so we just tell the browser this page
- * is dark rather than fighting its default light UI chrome (form
- * control colors, scrollbars) with more CSS.
+ * "Departures" — the dashboard is a split-flap departures board:
+ * every job caught is a possible next move. Dark only, by design
+ * (see DASHBOARD_PROMPT.md), so there is no light variant here.
+ *
+ * Colour carries meaning, never decoration:
+ *   amber — boarding: posted in the last 24 hours
+ *   teal  — strong match: the AI was confident this fits
+ *   rose  — final call: old enough that it may close soon, or the
+ *           collector has gone quiet
  */
+@theme {
+  --color-board: #0e1c2e;
+  --color-panel: #14263c;
+  --color-panel-2: #1a2f49;
+  --color-rule: #20364f;
+  --color-ink: #efe8d8;
+  --color-ink-2: #a9b6c8;
+  --color-ink-3: #71839c;
+  --color-amber: #f2b33d;
+  --color-teal: #57cdb8;
+  --color-rose: #ee8a8a;
+
+  --font-sans: var(--font-readex), ui-sans-serif, system-ui, sans-serif;
+  --font-board: var(--font-shoulders), var(--font-readex), ui-sans-serif, sans-serif;
+}
+
 html {
   color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--color-board);
+  font-feature-settings: "kern", "liga";
+}
+
+::selection {
+  background: var(--color-amber);
+  color: var(--color-board);
+}
+
+/* One visible, consistent keyboard focus ring everywhere. */
+:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Board numerals line up in columns, like a real flap display. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The single orchestrated motion moment: each hero character drops
+ * into place like a flap settling. JS cycles the glyphs; this only
+ * adds the physical "snap" of the leaf.
+ */
+@keyframes flap-settle {
+  0% {
+    transform: rotateX(-70deg);
+    opacity: 0.35;
+  }
+  100% {
+    transform: rotateX(0);
+    opacity: 1;
+  }
+}
+
+/* Masks the brief moment between server paint and the flaps spinning. */
+@keyframes flap-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Layout (flex, size) comes from utilities in SplitFlap.js; this only
+   sets the hinge the leaf rotates around. */
+.flap-char {
+  transform-origin: 50% 0;
+}
+
+.flap-char[data-settled="true"] {
+  animation: flap-settle 180ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+/* Row expansion answers a person's action, so it gets motion. */
+.row-detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.row-detail[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+
+.row-detail > div {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flap-char[data-settled="true"] {
+    animation: none;
+  }
+  .row-detail {
+    transition: none;
+  }
 }

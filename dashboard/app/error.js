@@ -12,15 +12,18 @@
  */
 export default function Error({ reset }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
-      <p className="text-lg font-medium text-zinc-200">Something went wrong loading the jobs.</p>
-      <p className="mt-2 text-sm text-zinc-500">Try again in a moment.</p>
+    <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6">
+      <p className="font-board text-5xl font-extrabold text-rose">Delayed</p>
+      <p className="mt-4 text-lg text-ink">The board couldn’t load the latest jobs.</p>
+      <p className="mt-2 text-ink-2">
+        This is usually a brief connection problem with the database. Your jobs are safe — try loading the board again.
+      </p>
       <button
         type="button"
         onClick={() => reset()}
-        className="mt-6 rounded-md bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-100 hover:bg-zinc-700"
+        className="mt-8 self-start rounded-md bg-amber px-5 py-2.5 font-semibold text-board hover:bg-amber/90"
       >
-        Retry
+        Try again
       </button>
     </main>
   );

@@ -241,6 +241,9 @@ async function decideAndSend({ evaluated, aiResults, channel, live, log, summary
         permalink: buildPermalink(channel, message.id),
         softWarning: e.scored.soft.length > 0,
         aiReason: aiUsable ? ai.data.reason : null,
+        salary: aiUsable ? ai.data.salary : null,
+        gaps: aiUsable ? ai.data.gaps : [],
+        redFlags: aiUsable ? ai.data.red_flags : [],
       };
 
       const html = buildJobMessage(job);
@@ -276,6 +279,12 @@ async function decideAndSend({ evaluated, aiResults, channel, live, log, summary
           seniority: aiUsable ? ai.data.seniority : null,
           stack: aiUsable ? ai.data.stack : [],
           reason: aiUsable ? ai.data.reason : null,
+          mustHaves: aiUsable ? ai.data.must_haves : [],
+          gaps: aiUsable ? ai.data.gaps : [],
+          redFlags: aiUsable ? ai.data.red_flags : [],
+          yearsRequired: aiUsable ? ai.data.years_required : null,
+          salary: aiUsable ? ai.data.salary : null,
+          employmentType: aiUsable ? ai.data.employment_type : null,
         });
         summary.sent++;
         maxId = message.id; // send succeeded, safe to skip this one on future runs

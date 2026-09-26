@@ -308,3 +308,31 @@ test("createLimiter: all queued tasks eventually resolve with their own result",
   const results = await Promise.all([1, 2, 3, 4].map((n) => limiter(async () => n * 10)));
   assert.deepEqual(results, [10, 20, 30, 40]);
 });
+
+test("validateAiShape: keeps the recruiter-review fields and caps list length", () => {
+  const out = validateAiShape({
+    is_job: true,
+    must_haves: ["React", " ", 3, "Node"],
+    gaps: ["5+ years"],
+    red_flags: Array.from({ length: 10 }, (_, i) => `flag ${i}`),
+    years_required: 3,
+    salary: " 1,000 USD / month ",
+    employment_type: "contract",
+  });
+  assert.deepEqual(out.must_haves, ["React", "Node"]);
+  assert.deepEqual(out.gaps, ["5+ years"]);
+  assert.equal(out.red_flags.length, 6);
+  assert.equal(out.years_required, 3);
+  assert.equal(out.salary, "1,000 USD / month");
+  assert.equal(out.employment_type, "contract");
+});
+
+test("validateAiShape: an older cached result without the review fields gets safe defaults", () => {
+  const out = validateAiShape({ is_job: true, matches_me: true, reason: "old cache" });
+  assert.deepEqual(out.gaps, []);
+  assert.deepEqual(out.red_flags, []);
+  assert.deepEqual(out.must_haves, []);
+  assert.equal(out.years_required, null);
+  assert.equal(out.salary, null);
+  assert.equal(out.employment_type, "unknown");
+});

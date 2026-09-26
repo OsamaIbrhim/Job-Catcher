@@ -97,3 +97,21 @@ test("buildJobMessage: a link containing a quote stays a valid href attribute", 
   const html = buildJobMessage({ title: "Dev", link: 'https://x.com/apply?q="react"' });
   assert.ok(html.includes('href="https://x.com/apply?q=&quot;react&quot;"'));
 });
+
+test("buildJobMessage: shows the AI review lines (salary, gaps, red flags) when present", () => {
+  const html = buildJobMessage({
+    title: "Dev",
+    aiReason: "Good fit",
+    salary: "20,000 EGP / month",
+    gaps: ["5+ years", "Java"],
+    redFlags: ["Asks for a training fee"],
+  });
+  assert.ok(html.includes("💰 20,000 EGP / month"));
+  assert.ok(html.includes("🧩 Gaps: 5+ years, Java"));
+  assert.ok(html.includes("🚩 Asks for a training fee"));
+});
+
+test("buildJobMessage: no review lines when the AI found nothing (or didn't run)", () => {
+  const html = buildJobMessage({ title: "Dev", gaps: [], redFlags: [] });
+  assert.ok(!html.includes("🧩") && !html.includes("🚩") && !html.includes("💰"));
+});
