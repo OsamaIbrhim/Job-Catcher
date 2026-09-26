@@ -18,9 +18,9 @@ export const AUTHOR = {
   // Set to "" to hide it.
   status: "Open to work",
   links: {
-    portfolio: "",
-    linkedin: "",
+    portfolio: "https://osamaibrhim.github.io/OsamaIbrahim/",
+    linkedin: "https://www.linkedin.com/in/osamaibrhim/",
     github: "https://github.com/OsamaIbrhim",
-    email: "",
+    email: "osamaibrahim.dev@gmail.com",
   },
 };
